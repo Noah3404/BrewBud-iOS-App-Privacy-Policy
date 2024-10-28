@@ -1,0 +1,133 @@
+import SwiftUI
+
+struct TrackerView: View {
+    @ObservedObject var tracker: DrinkTracker
+    let primaryColor: Color
+    let backgroundColor: Color
+
+    @State private var isAnimating = false
+    @State private var isResetting = false  // Track if reset is in progress
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                backgroundColor
+                    .edgesIgnoringSafeArea(.all)
+
+                VStack {
+                    Spacer().frame(height: 60)
+                    Text("BrewBud")
+                        .font(.custom("AvenirNext-Bold", size: 45))
+                        .foregroundColor(primaryColor)
+                        .padding(.bottom, 5)
+
+                    Text(Date(), style: .date)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(primaryColor)
+                        .padding(.bottom, 10)
+
+                    NavigationLink(destination: DrinkHistoryView(tracker: tracker, primaryColor: primaryColor, backgroundColor: backgroundColor)) {
+                        Text("Drink History")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(backgroundColor)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(primaryColor)
+                            .cornerRadius(8)
+                    }
+                    .padding(.bottom, 20)
+
+                    ZStack {
+                        Image("beer")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 400, height: 400)
+                            .shadow(radius: 15)
+
+                        Circle()
+                            .fill(primaryColor)
+                            .frame(width: 150, height: 150)
+                            .shadow(radius: 10)
+                            .offset(x: -10, y: 20)
+
+                        Text("\(tracker.drinkCount)")
+                            .font(.system(size: 70, weight: .bold))
+                            .foregroundColor(.black)
+                            .scaleEffect(isAnimating ? 1.2 : 1.0)
+                            .animation(.easeInOut(duration: 0.2), value: isAnimating)
+                            .onChange(of: tracker.drinkCount) {
+                                withAnimation {
+                                    isAnimating = true
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                    isAnimating = false
+                                }
+                            }
+                            .offset(x: -10, y: 20)
+                    }
+                    .padding(.bottom, 10)
+                    // Add the long press gesture to reset the drink counter
+                    .gesture(
+                        LongPressGesture(minimumDuration: 3.0)  // Hold for 3 seconds
+                            .onEnded { _ in
+                                if !isResetting {
+                                    isResetting = true
+                                    resetDrinkCounter()  // Call the reset function
+                                }
+                            }
+                    )
+
+                    ZStack {
+                        Button(action: {
+                            tracker.addDrink()
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 60, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 100, height: 100)
+                                .background(primaryColor)
+                                .clipShape(Circle())
+                                .shadow(radius: 5)
+                        }
+                        .padding(.top, -10)
+
+                        Button(action: {
+                            tracker.undoDrink()
+                        }) {
+                            Image(systemName: "minus")
+                                .font(.system(size: 30, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 50, height: 50)
+                                .background(primaryColor)
+                                .clipShape(Circle())
+                                .shadow(radius: 5)
+                        }
+                        .offset(x: -40, y: -40)
+                    }
+                    .padding(.top, 10)
+
+                    Spacer()
+                }
+            }
+            .alert(isPresented: $tracker.showLimitAlert) {
+                Alert(
+                    title: Text("Take it Easy"),
+                    message: Text("You've already reached 5 drinks. Be careful and watch your drinking!"),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
+        }
+    }
+
+    // Function to reset drink counter and history
+    private func resetDrinkCounter() {
+        tracker.resetCounter()  // Reset the counter and history
+        isResetting = false  // Reset the flag after completion
+    }
+}
+
+struct TrackerView_Previews: PreviewProvider {
+    static var previews: some View {
+        TrackerView(tracker: DrinkTracker(), primaryColor: Color.yellow, backgroundColor: Color.gray)
+    }
+}
